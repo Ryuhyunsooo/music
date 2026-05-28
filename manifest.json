@@ -1,0 +1,27 @@
+{
+  "name": "340번님의 뮤직 플레이어 🎧",
+  "short_name": "뮤직플레이어",
+  "description": "뮤직 플레이어",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#ffe066",
+  "orientation": "portrait-primary",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["music", "education"]
+}
