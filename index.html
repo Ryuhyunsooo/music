@@ -113,6 +113,39 @@ input[type=range].vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width
 
 /* ── PLAYLIST ── */
 .pl-list{display:flex;flex-direction:column;gap:8px}
+
+/* 플레이리스트 관리 */
+.pl-tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:12px}
+.pl-tabs::-webkit-scrollbar{display:none}
+.pl-tab{flex:none;padding:6px 14px;border-radius:20px;border:1px solid var(--border2);background:none;font-family:var(--main);font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;transition:all .2s;white-space:nowrap;display:flex;align-items:center;gap:5px}
+.pl-tab.active{background:rgba(255,224,102,.1);border-color:var(--y);color:var(--y)}
+.pl-tab:hover:not(.active){border-color:var(--text2);color:var(--text2)}
+.pl-tab-count{font-size:10px;font-family:var(--mono);opacity:.7}
+.pl-all{background:rgba(0,245,255,.08)!important;border-color:var(--cyan)!important;color:var(--cyan)!important}
+
+/* 플레이리스트 생성 폼 */
+.new-pl-row{display:flex;gap:8px;margin-bottom:12px}
+.new-pl-inp{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--main);font-size:13px;padding:8px 10px;outline:none}
+.new-pl-inp:focus{border-color:var(--y)}
+.new-pl-btn{padding:8px 14px;background:rgba(255,224,102,.1);border:1px solid rgba(255,224,102,.3);border-radius:6px;color:var(--y);font-family:var(--main);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s}
+.new-pl-btn:hover{background:rgba(255,224,102,.18)}
+
+/* 합치기 모달 */
+.merge-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:400;display:none;align-items:flex-end;justify-content:center}
+.merge-overlay.show{display:flex}
+.merge-modal{background:var(--bg2);border:1px solid var(--border2);border-radius:20px 20px 0 0;padding:22px 18px 36px;width:100%;max-width:480px;animation:slideUp .3s ease}
+.merge-title{font-size:15px;font-weight:900;color:var(--cyan);font-family:var(--mono);margin-bottom:14px}
+.merge-title::before{content:'// ';opacity:.4}
+.merge-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;max-height:240px;overflow-y:auto}
+.merge-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s}
+.merge-item.selected{border-color:var(--cyan);background:rgba(0,245,255,.08)}
+.merge-item-name{flex:1;font-size:13px;font-weight:700}
+.merge-item-count{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.merge-check{width:18px;height:18px;border-radius:50%;border:2px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px}
+.merge-item.selected .merge-check{background:var(--cyan);border-color:var(--cyan);color:#000}
+.merge-btns{display:flex;gap:8px}
+.merge-cancel{flex:1;padding:12px;background:transparent;border:1px solid var(--border2);border-radius:9px;color:var(--text2);font-family:var(--main);font-weight:700;font-size:13px;cursor:pointer}
+.merge-go{flex:2;padding:12px;background:var(--cyan);border:none;border-radius:9px;color:#000;font-family:var(--main);font-weight:900;font-size:13px;cursor:pointer}
 .track{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
 .track::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--y);opacity:0;transition:opacity .2s}
 .track:hover{border-color:rgba(255,224,102,.25);background:var(--card)}
@@ -324,12 +357,27 @@ input[type=range].vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width
 
 <!-- PLAYLIST -->
 <div class="card" style="--acc:var(--y)">
-  <div class="clabel">PLAYLIST</div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div class="clabel" style="margin-bottom:0">PLAYLIST</div>
+    <button onclick="openMerge()" style="padding:5px 10px;background:rgba(0,245,255,.08);border:1px solid rgba(0,245,255,.2);border-radius:6px;color:var(--cyan);font-family:var(--mono);font-size:10px;cursor:pointer">🔗 합치기</button>
+  </div>
+
+  <!-- 플레이리스트 탭 -->
+  <div class="pl-tabs" id="pl-tabs"></div>
+
+  <!-- 새 플레이리스트 만들기 -->
+  <div class="new-pl-row">
+    <input class="new-pl-inp" id="new-pl-inp" placeholder="새 플레이리스트 이름..." maxlength="20">
+    <button class="new-pl-btn" onclick="createPlaylist()">+ 만들기</button>
+  </div>
+
+  <!-- 정렬 -->
   <div class="filter-row">
     <button class="fbtn active" onclick="setSort('default',this)">기본순</button>
     <button class="fbtn" onclick="setSort('name',this)">이름순</button>
     <button class="fbtn" onclick="setSort('rating',this)">⭐ 최애순</button>
   </div>
+
   <div class="pl-list" id="pl-list"></div>
 </div>
 
@@ -337,6 +385,24 @@ input[type=range].vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width
 
 <!-- FAB -->
 <button class="fab" onclick="openModal()">+</button>
+
+<!-- 합치기 모달 -->
+<div class="merge-overlay" id="merge-overlay" onclick="handleMergeOvClick(event)">
+  <div class="merge-modal">
+    <div class="modal-handle"></div>
+    <div class="merge-title">MERGE PLAYLISTS</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">합칠 플레이리스트를 선택해봐 (2개 이상)</div>
+    <div class="merge-list" id="merge-list"></div>
+    <div style="margin-bottom:10px">
+      <div class="lbl" style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:5px">새 플레이리스트 이름</div>
+      <input class="new-pl-inp" id="merge-name-inp" placeholder="합쳐진 플레이리스트 이름..." style="width:100%">
+    </div>
+    <div class="merge-btns">
+      <button class="merge-cancel" onclick="closeMerge()">취소</button>
+      <button class="merge-go" onclick="mergePlaylists()">🔗 합치기</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL -->
 <div class="overlay" id="overlay" onclick="handleOvClick(event)">
@@ -359,6 +425,10 @@ input[type=range].vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width
       <button class="s-btn" onclick="setStar(4)" data-n="4">☆</button>
       <button class="s-btn" onclick="setStar(5)" data-n="5">☆</button>
     </div>
+    <div class="lbl">// 플레이리스트</div>
+    <select class="inp" id="m-playlist" style="margin-bottom:11px">
+      <option value="">전체 (미분류)</option>
+    </select>
     <div class="lbl">// 한 줄 평 (선택)</div>
     <input class="inp" id="m-review" placeholder="예) 공부할 때 집중 개잘됨 🔥" maxlength="60">
     <div class="modal-btns">
@@ -382,6 +452,11 @@ let timerInt  = null;
 let timerLeft = 0;
 let timerTot  = 0;
 const audio   = document.getElementById('player');
+
+// 플레이리스트
+let playlists   = JSON.parse(localStorage.getItem('yj_playlists') || '["전체"]');
+let currentPl   = '전체'; // 현재 선택된 플레이리스트
+let mergeSelected = [];
 
 // ════════════════════════════
 //  SAVE
@@ -644,9 +719,10 @@ function addTrack() {
   const url    = document.getElementById('m-url').value.trim();
   const genre  = document.getElementById('m-genre').value.trim();
   const review = document.getElementById('m-review').value.trim();
+  const playlist = document.getElementById('m-playlist').value;
   if (!title||!artist||!url) { showToast('제목, 아티스트, URL은 필수야!'); return; }
-  tracks.push({ id:Date.now().toString(), title, artist, url, genre, review, rating:currentStar });
-  save(); renderPlaylist(); closeModal();
+  tracks.push({ id:Date.now().toString(), title, artist, url, genre, review, rating:currentStar, playlist });
+  save(); renderPlTabs(); renderPlaylist(); closeModal();
   showToast(`"${title}" 추가됨 🎵`);
 }
 
@@ -685,19 +761,20 @@ function renderStars(n) {
 
 function renderPlaylist() {
   const el = document.getElementById('pl-list');
-  const sorted = getSorted();
+  const sorted = getFilteredTracks();
   if (!sorted.length) {
-    el.innerHTML = `<div class="no-tracks">아직 트랙 없음 😶<br>+ 버튼으로 음원 URL을 추가해봐!<br><span style="font-size:10px">MP3, OGG, WAV 등 직접 링크 지원</span></div>`;
+    el.innerHTML = `<div class="no-tracks">${currentPl === '전체' ? '아직 트랙 없음 😶<br>+ 버튼으로 음원 URL을 추가해봐!' : '"'+currentPl+'" 에 곡이 없어!<br>곡 추가 시 플레이리스트를 선택해봐 👍'}</div>`;
     return;
   }
   el.innerHTML = sorted.map((t, i) => {
     const realIdx = tracks.indexOf(t);
     const isActive = realIdx === curIdx && (audio.src.includes(t.url) || audio.src === t.url);
+    const plBadge = t.playlist ? `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(255,224,102,.1);color:var(--y);font-family:var(--mono);margin-left:4px">${esc(t.playlist)}</span>` : '';
     return `
       <div class="track${isActive?' active':''}" onclick="playAt(${realIdx})">
         <div class="track-idx">${isActive ? '♪' : i+1}</div>
         <div class="track-info">
-          <div class="track-title">${esc(t.title)}</div>
+          <div class="track-title">${esc(t.title)}${currentPl==='전체'?plBadge:''}</div>
           <div class="track-artist">${esc(t.artist)}${t.genre?` · ${esc(t.genre)}`:''}</div>
           <div class="track-stars">${renderStars(t.rating)}</div>
           ${t.review ? `<div class="track-review">"${esc(t.review)}"</div>` : ''}
@@ -811,6 +888,145 @@ audio.addEventListener('timeupdate', () => {
 });
 
 // ════════════════════════════
+//  플레이리스트 관리
+// ════════════════════════════
+function savePlaylists() {
+  localStorage.setItem('yj_playlists', JSON.stringify(playlists));
+}
+
+function createPlaylist() {
+  const name = document.getElementById('new-pl-inp').value.trim();
+  if (!name) { showToast('이름을 입력해줘!'); return; }
+  if (playlists.includes(name)) { showToast('이미 있는 이름이야!'); return; }
+  playlists.push(name);
+  savePlaylists();
+  document.getElementById('new-pl-inp').value = '';
+  renderPlTabs();
+  updateModalPlaylistSelect();
+  showToast(`"${name}" 플레이리스트 생성됨!`);
+}
+
+function deletePlaylist(name) {
+  if (name === '전체') return;
+  playlists = playlists.filter(p => p !== name);
+  // 해당 플레이리스트 곡들 → 미분류로
+  tracks.forEach(t => { if (t.playlist === name) t.playlist = ''; });
+  save();
+  savePlaylists();
+  if (currentPl === name) currentPl = '전체';
+  renderPlTabs();
+  renderPlaylist();
+  updateModalPlaylistSelect();
+  showToast(`"${name}" 삭제됨`);
+}
+
+function selectPl(name) {
+  currentPl = name;
+  renderPlTabs();
+  renderPlaylist();
+}
+
+function renderPlTabs() {
+  const el = document.getElementById('pl-tabs');
+  const allCount = tracks.length;
+  let html = `<button class="pl-tab active pl-all" onclick="selectPl('전체')">🎵 전체 <span class="pl-tab-count">${allCount}</span></button>`;
+  playlists.filter(p => p !== '전체').forEach(p => {
+    const cnt = tracks.filter(t => t.playlist === p).length;
+    const isActive = currentPl === p;
+    html += `<button class="pl-tab${isActive?' active':''}" onclick="selectPl('${p}')">
+      ${p} <span class="pl-tab-count">${cnt}</span>
+      <span onclick="deletePlaylist('${p}');event.stopPropagation()" style="margin-left:2px;opacity:.5;font-size:10px">✕</span>
+    </button>`;
+  });
+  el.innerHTML = html;
+  // 현재 탭 active 업데이트
+  el.querySelectorAll('.pl-tab').forEach(btn => {
+    const isAll = btn.textContent.includes('전체') && currentPl === '전체';
+    const name = btn.textContent.trim().split(' ')[0];
+    btn.classList.toggle('active', isAll || name === currentPl);
+  });
+}
+
+function updateModalPlaylistSelect() {
+  const sel = document.getElementById('m-playlist');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">전체 (미분류)</option>';
+  playlists.filter(p => p !== '전체').forEach(p => {
+    sel.innerHTML += `<option value="${p}">${p}</option>`;
+  });
+}
+
+function getFilteredTracks() {
+  if (currentPl === '전체') return getSorted(tracks);
+  return getSorted(tracks.filter(t => t.playlist === currentPl));
+}
+
+// ════════════════════════════
+//  합치기 모달
+// ════════════════════════════
+function openMerge() {
+  mergeSelected = [];
+  const el = document.getElementById('merge-list');
+  el.innerHTML = playlists.filter(p => p !== '전체').map(p => {
+    const cnt = tracks.filter(t => t.playlist === p).length;
+    return `<div class="merge-item" id="mi-${p}" onclick="toggleMergeSelect('${p}')">
+      <div class="merge-check" id="mc-${p}"></div>
+      <div class="merge-item-name">${p}</div>
+      <div class="merge-item-count">${cnt}곡</div>
+    </div>`;
+  }).join('');
+  document.getElementById('merge-overlay').classList.add('show');
+}
+
+function closeMerge() {
+  document.getElementById('merge-overlay').classList.remove('show');
+  mergeSelected = [];
+}
+
+function handleMergeOvClick(e) {
+  if (e.target === document.getElementById('merge-overlay')) closeMerge();
+}
+
+function toggleMergeSelect(name) {
+  const item = document.getElementById('mi-'+name);
+  const check = document.getElementById('mc-'+name);
+  if (mergeSelected.includes(name)) {
+    mergeSelected = mergeSelected.filter(p => p !== name);
+    item.classList.remove('selected');
+    check.textContent = '';
+  } else {
+    mergeSelected.push(name);
+    item.classList.add('selected');
+    check.textContent = '✓';
+  }
+}
+
+function mergePlaylists() {
+  if (mergeSelected.length < 2) { showToast('2개 이상 선택해줘!'); return; }
+  const newName = document.getElementById('merge-name-inp').value.trim();
+  if (!newName) { showToast('새 플레이리스트 이름을 입력해줘!'); return; }
+  if (playlists.includes(newName)) { showToast('이미 있는 이름이야!'); return; }
+
+  // 새 플레이리스트 생성
+  playlists.push(newName);
+  // 선택된 플레이리스트 곡들 → 새 플레이리스트로 복사 (원본 유지)
+  tracks.forEach(t => {
+    if (mergeSelected.includes(t.playlist)) {
+      // 복사본 추가
+      tracks.push({ ...t, id: Date.now().toString()+Math.random().toString(36).slice(2), playlist: newName });
+    }
+  });
+
+  save();
+  savePlaylists();
+  closeMerge();
+  renderPlTabs();
+  renderPlaylist();
+  updateModalPlaylistSelect();
+  showToast(`"${newName}" 으로 합쳐짐! 🔗`);
+}
+
+// ════════════════════════════
 //  KEYBOARD
 // ════════════════════════════
 document.addEventListener('keydown', e => {
@@ -831,6 +1047,8 @@ if (tracks.length && curIdx < tracks.length) {
   document.getElementById('np-title').textContent  = t.title;
   document.getElementById('np-artist').textContent = t.artist;
 }
+renderPlTabs();
+updateModalPlaylistSelect();
 renderPlaylist();
 
 // PWA 서비스워커
