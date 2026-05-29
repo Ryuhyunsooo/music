@@ -455,8 +455,61 @@ const audio   = document.getElementById('player');
 
 // 플레이리스트
 let playlists   = JSON.parse(localStorage.getItem('yj_playlists') || '["전체"]');
-let currentPl   = '전체'; // 현재 선택된 플레이리스트
+let currentPl   = '전체';
 let mergeSelected = [];
+
+// ════════════════════════════
+//  FIREBASE 초기화
+// ════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyCFqVtBMTwqg_mXOsmGfO4uHE6SaCuZseA",
+  authDomain: "music-9f3b6.firebaseapp.com",
+  projectId: "music-9f3b6",
+  storageBucket: "music-9f3b6.firebasestorage.app",
+  messagingSenderId: "631267930855",
+  appId: "1:631267930855:web:636addae6cf1ad88e16842"
+};
+
+let db = null;
+let userId = localStorage.getItem('yj_uid');
+if (!userId) {
+  userId = 'user_' + Math.random().toString(36).slice(2);
+  localStorage.setItem('yj_uid', userId);
+}
+
+async function initFirebase() {
+  try {
+    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+    const { getFirestore, doc, setDoc, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    const docRef = doc(db, 'users', userId);
+    onSnapshot(docRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const rt = data.tracks || [];
+        const rp = data.playlists || ['전체'];
+        if (JSON.stringify(rt) !== JSON.stringify(tracks)) {
+          tracks = rt; playlists = rp;
+          localStorage.setItem('yj_tracks', JSON.stringify(tracks));
+          localStorage.setItem('yj_playlists', JSON.stringify(playlists));
+          renderPlTabs(); renderPlaylist(); updateModalPlaylistSelect();
+        }
+      }
+    });
+    showToast('☁️ 클라우드 동기화 연결됨!');
+  } catch(e) { console.log('Firebase 오프라인 모드:', e); }
+}
+
+async function saveToCloud() {
+  if (!db) return;
+  try {
+    const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    await setDoc(doc(db, 'users', userId), { tracks, playlists, updatedAt: Date.now() });
+  } catch(e) { console.log('클라우드 저장 실패:', e); }
+}
+
+initFirebase();
 
 // ════════════════════════════
 //  SAVE
@@ -464,6 +517,12 @@ let mergeSelected = [];
 function save() {
   localStorage.setItem('yj_tracks', JSON.stringify(tracks));
   localStorage.setItem('yj_idx', String(curIdx));
+  saveToCloud();
+}
+
+function savePlaylists() {
+  localStorage.setItem('yj_playlists', JSON.stringify(playlists));
+  saveToCloud();
 }
 
 // ════════════════════════════
@@ -890,10 +949,6 @@ audio.addEventListener('timeupdate', () => {
 // ════════════════════════════
 //  플레이리스트 관리
 // ════════════════════════════
-function savePlaylists() {
-  localStorage.setItem('yj_playlists', JSON.stringify(playlists));
-}
-
 function createPlaylist() {
   const name = document.getElementById('new-pl-inp').value.trim();
   if (!name) { showToast('이름을 입력해줘!'); return; }
