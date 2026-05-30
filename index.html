@@ -660,6 +660,8 @@ function togglePlay() {
   if (!audio.src) return;
   audio.paused ? audio.play() : audio.pause();
 }
+
+function prevTrack() {
   if (!tracks.length) return;
   loadTrack(curIdx > 0 ? curIdx - 1 : tracks.length - 1);
   audio.play();
@@ -1074,13 +1076,13 @@ function updateBreadcrumb() {
   const pl = playlists.find(p => p.name === currentPl);
   const icon = pl ? LEVEL_ICON[pl.level] : '';
   const lvl  = pl ? LEVEL_NAME[pl.level] : '';
-  bc.innerHTML = '<span style="cursor:pointer;color:var(--text3)" onclick="navPl('all')">전체</span> <span style="color:var(--text3)">›</span> <span style="color:var(--y)">' + icon + ' ' + currentPl + '</span> <span style="font-size:10px;color:var(--text3)">(' + lvl + ')</span>';
+  bc.innerHTML = '<span style="cursor:pointer;color:var(--text3)" onclick="navPl(&quot;all&quot;)">전체</span> <span style="color:var(--text3)">›</span> <span style="color:var(--y)">' + icon + ' ' + currentPl + '</span> <span style="font-size:10px;color:var(--text3)">(' + lvl + ')</span>';
 }
 
 function renderPlTabs() {
   const el = document.getElementById('pl-tabs');
   if (!el) return;
-  let html = '<button class="pl-tab' + (currentPl==='all'?' active pl-all':'') + '" onclick="navPl('all')">🎵 전체 <span class="pl-tab-count">' + tracks.length + '</span></button>';
+  let html = '<button class="pl-tab' + (currentPl==='all'?' active pl-all':'') + '" onclick="navPl(&quot;all&quot;)">🎵 전체 <span class="pl-tab-count">' + tracks.length + '</span></button>';
   ['small','mid','big'].forEach(lv => {
     const lvPls = playlists.filter(p => p.level === lv);
     if (!lvPls.length) return;
@@ -1088,7 +1090,8 @@ function renderPlTabs() {
     lvPls.forEach(p => {
       const cnt = tracks.filter(t => t.playlist === p.name).length;
       const isActive = currentPl === p.name;
-      html += '<button class="pl-tab' + (isActive?' active':'') + '" onclick="navPl('' + p.name + '')">' + p.name + ' <span class="pl-tab-count">' + cnt + '</span><span onclick="deletePlaylist('' + p.name + '');event.stopPropagation()" style="margin-left:2px;opacity:.5;font-size:10px">✕</span></button>';
+      const safeName = p.name.replace(/'/g, "\\'");
+      html += '<button class="pl-tab' + (isActive?' active':'') + '" onclick="navPl(\'' + safeName + '\')">'+p.name+' <span class="pl-tab-count">' + cnt + '</span><span onclick="deletePlaylist(\'' + safeName + '\');event.stopPropagation()" style="margin-left:2px;opacity:.5;font-size:10px">✕</span></button>';
     });
   });
   el.innerHTML = html;
@@ -1131,13 +1134,16 @@ function openMerge(fromLevel, toLevel) {
   if (!fromPls.length) {
     el.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:12px;padding:20px">' + LEVEL_NAME[fromLevel] + '이 없어!<br>먼저 만들어봐</div>';
   } else {
-    el.innerHTML = fromPls.map(p => {
+    el.innerHTML = '';
+    fromPls.forEach(p => {
       const cnt = tracks.filter(t => t.playlist === p.name).length;
-      return '<div class="merge-item" id="mi-' + p.name + '" onclick="toggleMergeSelect('' + p.name + '')">' +
-        '<div class="merge-check" id="mc-' + p.name + '"></div>' +
-        '<div class="merge-item-name">' + LEVEL_ICON[p.level] + ' ' + p.name + '</div>' +
-        '<div class="merge-item-count">' + cnt + '곡</div></div>';
-    }).join('');
+      const div = document.createElement('div');
+      div.className = 'merge-item';
+      div.id = 'mi-' + p.name;
+      div.innerHTML = '<div class="merge-check" id="mc-' + p.name + '"></div><div class="merge-item-name">' + LEVEL_ICON[p.level] + ' ' + p.name + '</div><div class="merge-item-count">' + cnt + '곡</div>';
+      div.onclick = () => toggleMergeSelect(p.name);
+      el.appendChild(div);
+    });
   }
   document.getElementById('merge-overlay').classList.add('show');
 }
@@ -1192,9 +1198,6 @@ document.addEventListener('keydown', e => {
 // ════════════════════════════
 //  INIT
 // ════════════════════════════
-const LEVEL_ICON = { small: '🟢', mid: '🟡', big: '🔴' };
-const LEVEL_NAME = { small: '소분류', mid: '중분류', big: '대분류' };
-
 audio.volume = 0.8;
 document.getElementById('loop-btn').style.opacity   = '0.4';
 document.getElementById('shuffle-btn').style.opacity = '0.4';
