@@ -634,10 +634,15 @@ function playAt(idx) {
   const isSC = t.url && (t.url.includes('soundcloud.com') || t.url.includes('on.soundcloud'));
 
   if (isSC) {
-    // SoundCloud → 앱으로 열기
+    // SoundCloud → 링크로 이동 (아이폰 팝업 차단 우회)
     loadTrack(idx);
-    window.open(t.url, '_blank');
-    // Now Playing 표시
+    const a = document.createElement('a');
+    a.href = t.url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     document.getElementById('np-dot').classList.add('playing');
     document.getElementById('np-status-txt').textContent = 'SoundCloud에서 재생 중';
     document.getElementById('waveform').classList.add('playing');
