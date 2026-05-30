@@ -359,29 +359,27 @@ input[type=range].vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width
 <div class="card" style="--acc:var(--y)">
   <div class="clabel">PLAYLIST</div>
 
-  <!-- 3단계 네비게이션 -->
-  <div id="pl-breadcrumb" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:6px">
-    <span id="pl-bc-all" style="cursor:pointer;color:var(--cyan)" onclick="navPl('all')">전체</span>
-  </div>
+  <!-- 브레드크럼 네비게이션 -->
+  <div id="pl-breadcrumb" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:4px;flex-wrap:wrap"></div>
 
-  <!-- 분류 탭들 -->
+  <!-- 드릴다운 탭 -->
   <div class="pl-tabs" id="pl-tabs"></div>
 
   <!-- 새 분류 만들기 -->
   <div class="new-pl-row" style="margin-bottom:8px">
     <input class="new-pl-inp" id="new-pl-inp" placeholder="새 분류 이름..." maxlength="20">
     <select id="new-pl-level" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--main);font-size:12px;padding:8px;outline:none">
-      <option value="small">🟢 소분류</option>
-      <option value="mid">🟡 중분류</option>
       <option value="big">🔴 대분류</option>
+      <option value="mid">🟡 중분류</option>
+      <option value="small" selected>🟢 소분류</option>
     </select>
     <button class="new-pl-btn" onclick="createPlaylist()">+ 만들기</button>
   </div>
 
   <!-- 합치기 버튼 -->
   <div style="display:flex;gap:6px;margin-bottom:10px">
-    <button onclick="openMerge('small','mid')" style="flex:1;padding:6px;background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.2);border-radius:6px;color:var(--green);font-family:var(--mono);font-size:10px;cursor:pointer">🟢→🟡 소→중 합치기</button>
-    <button onclick="openMerge('mid','big')" style="flex:1;padding:6px;background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.2);border-radius:6px;color:var(--orange);font-family:var(--mono);font-size:10px;cursor:pointer">🟡→🔴 중→대 합치기</button>
+    <button onclick="openMerge('small','mid')" style="flex:1;padding:6px;background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.2);border-radius:6px;color:var(--green);font-family:var(--mono);font-size:10px;cursor:pointer">🟢→🟡 소→중</button>
+    <button onclick="openMerge('mid','big')" style="flex:1;padding:6px;background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.2);border-radius:6px;color:var(--orange);font-family:var(--mono);font-size:10px;cursor:pointer">🟡→🔴 중→대</button>
   </div>
 
   <!-- 정렬 -->
@@ -1057,45 +1055,135 @@ function deletePlaylist(name) {
   playlists = playlists.filter(p => p.name !== name);
   tracks.forEach(t => { if (t.playlist === name) t.playlist = ''; });
   save(); savePlaylists();
-  if (currentPl === name) currentPl = 'all';
+  if (currentPl !== 'all' && currentPl.name === name) currentPl = 'all';
   renderPlTabs(); renderPlaylist(); updateModalPlaylistSelect();
   showToast('"' + name + '" 삭제됨');
 }
 
-function navPl(name) {
-  currentPl = name;
-  renderPlTabs(); renderPlaylist(); updateBreadcrumb();
+function navPl(target) {
+  // target: 'all' | { level, name } | { level: 'small', name }
+  currentPl = target;
+  renderPlTabs();
+  renderPlaylist();
+  updateBreadcrumb();
 }
 
 function updateBreadcrumb() {
   const bc = document.getElementById('pl-breadcrumb');
   if (!bc) return;
+  bc.innerHTML = '';
+
+  const makeSpan = (label, onclick, active) => {
+    const s = document.createElement('span');
+    s.textContent = label;
+    s.style.cursor = onclick ? 'pointer' : 'default';
+    s.style.color = active ? 'var(--y)' : onclick ? 'var(--text3)' : 'var(--text3)';
+    if (onclick) s.onclick = onclick;
+    return s;
+  };
+  const makeSep = () => {
+    const s = document.createElement('span');
+    s.textContent = '›';
+    s.style.color = 'var(--text3)';
+    return s;
+  };
+
   if (currentPl === 'all') {
-    bc.innerHTML = '<span style="color:var(--cyan)">전체</span>'; return;
+    bc.appendChild(makeSpan('🎵 전체', null, true));
+    return;
   }
-  const pl = playlists.find(p => p.name === currentPl);
-  const icon = pl ? LEVEL_ICON[pl.level] : '';
-  const lvl  = pl ? LEVEL_NAME[pl.level] : '';
-  bc.innerHTML = '<span style="cursor:pointer;color:var(--text3)" onclick="navPl(&quot;all&quot;)">전체</span> <span style="color:var(--text3)">›</span> <span style="color:var(--y)">' + icon + ' ' + currentPl + '</span> <span style="font-size:10px;color:var(--text3)">(' + lvl + ')</span>';
+
+  bc.appendChild(makeSpan('전체', () => navPl('all'), false));
+
+  if (currentPl.level === 'big') {
+    bc.appendChild(makeSep());
+    bc.appendChild(makeSpan('🔴 ' + currentPl.name, null, true));
+  } else if (currentPl.level === 'mid') {
+    bc.appendChild(makeSep());
+    bc.appendChild(makeSpan('🟡 ' + currentPl.name, null, true));
+  } else if (currentPl.level === 'small') {
+    bc.appendChild(makeSep());
+    bc.appendChild(makeSpan('🟢 ' + currentPl.name, null, true));
+  }
 }
 
 function renderPlTabs() {
   const el = document.getElementById('pl-tabs');
   if (!el) return;
-  let html = '<button class="pl-tab' + (currentPl==='all'?' active pl-all':'') + '" onclick="navPl(&quot;all&quot;)">🎵 전체 <span class="pl-tab-count">' + tracks.length + '</span></button>';
-  ['small','mid','big'].forEach(lv => {
-    const lvPls = playlists.filter(p => p.level === lv);
-    if (!lvPls.length) return;
-    html += '<span style="font-size:9px;color:var(--text3);font-family:var(--mono);padding:0 4px;align-self:center">' + LEVEL_ICON[lv] + '</span>';
-    lvPls.forEach(p => {
-      const cnt = tracks.filter(t => t.playlist === p.name).length;
-      const isActive = currentPl === p.name;
-      const safeName = p.name.replace(/'/g, "\\'");
-      html += '<button class="pl-tab' + (isActive?' active':'') + '" onclick="navPl(\'' + safeName + '\')">'+p.name+' <span class="pl-tab-count">' + cnt + '</span><span onclick="deletePlaylist(\'' + safeName + '\');event.stopPropagation()" style="margin-left:2px;opacity:.5;font-size:10px">✕</span></button>';
-    });
+  el.innerHTML = '';
+
+  // 현재 뷰에 따라 보여줄 단계 결정
+  let showLevel, parentName = null;
+
+  if (currentPl === 'all') {
+    // 대분류만 + 대분류 없는 중분류 + 대분류/중분류 없는 소분류
+    showLevel = 'big';
+  } else if (currentPl.level === 'big') {
+    showLevel = 'mid';
+    parentName = currentPl.name;
+  } else if (currentPl.level === 'mid') {
+    showLevel = 'small';
+    parentName = currentPl.name;
+  } else {
+    // 소분류 선택됨 → 같은 레벨 소분류들 보여주기
+    showLevel = 'small';
+    parentName = currentPl.parentName || null;
+  }
+
+  // 전체 버튼
+  const allBtn = document.createElement('button');
+  allBtn.className = 'pl-tab' + (currentPl === 'all' ? ' active pl-all' : '');
+  allBtn.innerHTML = '🎵 전체 <span class="pl-tab-count">' + tracks.length + '</span>';
+  allBtn.onclick = () => navPl('all');
+  el.appendChild(allBtn);
+
+  // 해당 레벨 분류 표시
+  const items = playlists.filter(p => p.level === showLevel);
+  items.forEach(p => {
+    const cnt = tracks.filter(t => t.playlist === p.name).length;
+    const isActive = currentPl !== 'all' && currentPl.name === p.name;
+    const btn = document.createElement('button');
+    btn.className = 'pl-tab' + (isActive ? ' active' : '');
+    const icon = LEVEL_ICON[p.level];
+    btn.textContent = icon + ' ' + p.name + ' ';
+    const cntSpan = document.createElement('span');
+    cntSpan.className = 'pl-tab-count';
+    cntSpan.textContent = cnt;
+    btn.appendChild(cntSpan);
+    const delSpan = document.createElement('span');
+    delSpan.style.cssText = 'margin-left:2px;opacity:.5;font-size:10px';
+    delSpan.textContent = '✕';
+    delSpan.onclick = (e) => { e.stopPropagation(); deletePlaylist(p.name); };
+    btn.appendChild(delSpan);
+    btn.onclick = () => navPl({ level: p.level, name: p.name });
+    el.appendChild(btn);
   });
-  el.innerHTML = html;
+
+  // 대분류 없으면 안내
+  if (items.length === 0 && currentPl === 'all') {
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size:11px;color:var(--text3);font-family:var(--mono);padding:6px 0';
+    hint.textContent = '분류가 없어. 위에서 만들어봐!';
+    el.appendChild(hint);
+  }
+
   updateBreadcrumb();
+}
+
+function getFilteredTracks() {
+  if (currentPl === 'all') return getSorted(tracks);
+  if (currentPl.level === 'small') {
+    return getSorted(tracks.filter(t => t.playlist === currentPl.name));
+  }
+  // 중/대분류는 하위 분류 곡들 모두 포함
+  if (currentPl.level === 'big') {
+    // 이 대분류 이름과 일치하는 중분류/소분류 찾기
+    return getSorted(tracks.filter(t => t.playlist === currentPl.name));
+  }
+  if (currentPl.level === 'mid') {
+    return getSorted(tracks.filter(t => t.playlist === currentPl.name));
+  }
+  return getSorted(tracks);
 }
 
 function updateModalPlaylistSelect() {
