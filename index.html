@@ -634,8 +634,9 @@ function playAt(idx) {
   const isSC = t.url && (t.url.includes('soundcloud.com') || t.url.includes('on.soundcloud'));
 
   if (isSC) {
-    loadTrack(idx);
+    // window.open 먼저 호출 (iOS Safari는 사용자 탭 이벤트 직후에만 허용)
     window.open(t.url, '_blank');
+    loadTrack(idx);
     document.getElementById('np-dot').classList.add('playing');
     document.getElementById('np-status-txt').textContent = 'SoundCloud에서 재생 중 ☁️';
     document.getElementById('waveform').classList.add('playing');
