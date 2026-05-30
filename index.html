@@ -675,11 +675,6 @@ function nextTrack() {
   audio.play();
 }
 
-function playAt(idx) {
-  loadTrack(idx);
-  audio.play();
-}
-
 function seekAudio(e) {
   if (!audio.duration) return;
   const rect = e.currentTarget.getBoundingClientRect();
