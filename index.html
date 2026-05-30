@@ -635,26 +635,12 @@ function playAt(idx) {
 
   if (isSC) {
     loadTrack(idx);
-    // 앱 스킴으로 먼저 시도, 실패하면 웹으로
-    const appUrl = t.url.replace('https://on.soundcloud.com/', 'soundcloud://').replace('https://soundcloud.com/', 'soundcloud://');
-    const webUrl = t.url;
-    // 앱 열기 시도
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = appUrl;
-    document.body.appendChild(iframe);
-    setTimeout(() => {
-      document.body.removeChild(iframe);
-    }, 1000);
-    // 1.5초 후에도 앱 안 열리면 웹으로
-    setTimeout(() => {
-      window.location.href = webUrl;
-    }, 1500);
+    window.open(t.url, '_blank');
     document.getElementById('np-dot').classList.add('playing');
-    document.getElementById('np-status-txt').textContent = 'SoundCloud에서 재생 중';
+    document.getElementById('np-status-txt').textContent = 'SoundCloud에서 재생 중 ☁️';
     document.getElementById('waveform').classList.add('playing');
     document.getElementById('np-disc').classList.add('spinning');
-    showToast('SoundCloud 앱 열는 중 🎵');
+    showToast('SoundCloud에서 재생해봐 🎵');
   } else {
     loadTrack(idx);
     audio.play();
