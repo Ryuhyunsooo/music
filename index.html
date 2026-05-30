@@ -357,18 +357,31 @@ input[type=range].vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width
 
 <!-- PLAYLIST -->
 <div class="card" style="--acc:var(--y)">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-    <div class="clabel" style="margin-bottom:0">PLAYLIST</div>
-    <button onclick="openMerge()" style="padding:5px 10px;background:rgba(0,245,255,.08);border:1px solid rgba(0,245,255,.2);border-radius:6px;color:var(--cyan);font-family:var(--mono);font-size:10px;cursor:pointer">🔗 합치기</button>
+  <div class="clabel">PLAYLIST</div>
+
+  <!-- 3단계 네비게이션 -->
+  <div id="pl-breadcrumb" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:6px">
+    <span id="pl-bc-all" style="cursor:pointer;color:var(--cyan)" onclick="navPl('all')">전체</span>
   </div>
 
-  <!-- 플레이리스트 탭 -->
+  <!-- 분류 탭들 -->
   <div class="pl-tabs" id="pl-tabs"></div>
 
-  <!-- 새 플레이리스트 만들기 -->
-  <div class="new-pl-row">
-    <input class="new-pl-inp" id="new-pl-inp" placeholder="새 플레이리스트 이름..." maxlength="20">
+  <!-- 새 분류 만들기 -->
+  <div class="new-pl-row" style="margin-bottom:8px">
+    <input class="new-pl-inp" id="new-pl-inp" placeholder="새 분류 이름..." maxlength="20">
+    <select id="new-pl-level" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--main);font-size:12px;padding:8px;outline:none">
+      <option value="small">🟢 소분류</option>
+      <option value="mid">🟡 중분류</option>
+      <option value="big">🔴 대분류</option>
+    </select>
     <button class="new-pl-btn" onclick="createPlaylist()">+ 만들기</button>
+  </div>
+
+  <!-- 합치기 버튼 -->
+  <div style="display:flex;gap:6px;margin-bottom:10px">
+    <button onclick="openMerge('small','mid')" style="flex:1;padding:6px;background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.2);border-radius:6px;color:var(--green);font-family:var(--mono);font-size:10px;cursor:pointer">🟢→🟡 소→중 합치기</button>
+    <button onclick="openMerge('mid','big')" style="flex:1;padding:6px;background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.2);border-radius:6px;color:var(--orange);font-family:var(--mono);font-size:10px;cursor:pointer">🟡→🔴 중→대 합치기</button>
   </div>
 
   <!-- 정렬 -->
@@ -390,12 +403,12 @@ input[type=range].vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width
 <div class="merge-overlay" id="merge-overlay" onclick="handleMergeOvClick(event)">
   <div class="merge-modal">
     <div class="modal-handle"></div>
-    <div class="merge-title">MERGE PLAYLISTS</div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">합칠 플레이리스트를 선택해봐 (2개 이상)</div>
+    <div class="merge-title" id="merge-modal-title">MERGE PLAYLISTS</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px" id="merge-modal-desc">합칠 분류를 선택해봐 (2개 이상)</div>
     <div class="merge-list" id="merge-list"></div>
     <div style="margin-bottom:10px">
-      <div class="lbl" style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:5px">새 플레이리스트 이름</div>
-      <input class="new-pl-inp" id="merge-name-inp" placeholder="합쳐진 플레이리스트 이름..." style="width:100%">
+      <div class="lbl" style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:5px">새 분류 이름</div>
+      <input class="new-pl-inp" id="merge-name-inp" placeholder="합쳐진 분류 이름..." style="width:100%">
     </div>
     <div class="merge-btns">
       <button class="merge-cancel" onclick="closeMerge()">취소</button>
@@ -468,10 +481,16 @@ let timerLeft = 0;
 let timerTot  = 0;
 const audio   = document.getElementById('player');
 
-// 플레이리스트
-let playlists   = JSON.parse(localStorage.getItem('yj_playlists') || '["전체"]');
-let currentPl   = '전체';
-let mergeSelected = [];
+// 플레이리스트 (3단계 구조)
+// { name, level: 'small'|'mid'|'big' }
+let playlists   = JSON.parse(localStorage.getItem('yj_playlists') || '[]');
+let currentPl   = 'all'; // 'all' | playlist name
+let mergeFromLevel = 'small';
+let mergeToLevel   = 'mid';
+let mergeSelected  = [];
+
+const LEVEL_ICON = { small: '🟢', mid: '🟡', big: '🔴' };
+const LEVEL_NAME = { small: '소분류', mid: '중분류', big: '대분류' };
 
 // ════════════════════════════
 //  FIREBASE 초기화
@@ -1021,86 +1040,105 @@ audio.addEventListener('timeupdate', () => {
 //  플레이리스트 관리
 // ════════════════════════════
 function createPlaylist() {
-  const name = document.getElementById('new-pl-inp').value.trim();
+  const name  = document.getElementById('new-pl-inp').value.trim();
+  const level = document.getElementById('new-pl-level').value;
   if (!name) { showToast('이름을 입력해줘!'); return; }
-  if (playlists.includes(name)) { showToast('이미 있는 이름이야!'); return; }
-  playlists.push(name);
+  if (playlists.find(p => p.name === name)) { showToast('이미 있는 이름이야!'); return; }
+  playlists.push({ name, level });
   savePlaylists();
   document.getElementById('new-pl-inp').value = '';
-  renderPlTabs();
-  updateModalPlaylistSelect();
-  showToast(`"${name}" 플레이리스트 생성됨!`);
+  renderPlTabs(); updateModalPlaylistSelect();
+  showToast(LEVEL_ICON[level] + ' "' + name + '" 생성됨!');
 }
 
 function deletePlaylist(name) {
-  if (name === '전체') return;
-  playlists = playlists.filter(p => p !== name);
-  // 해당 플레이리스트 곡들 → 미분류로
+  playlists = playlists.filter(p => p.name !== name);
   tracks.forEach(t => { if (t.playlist === name) t.playlist = ''; });
-  save();
-  savePlaylists();
-  if (currentPl === name) currentPl = '전체';
-  renderPlTabs();
-  renderPlaylist();
-  updateModalPlaylistSelect();
-  showToast(`"${name}" 삭제됨`);
+  save(); savePlaylists();
+  if (currentPl === name) currentPl = 'all';
+  renderPlTabs(); renderPlaylist(); updateModalPlaylistSelect();
+  showToast('"' + name + '" 삭제됨');
 }
 
-function selectPl(name) {
+function navPl(name) {
   currentPl = name;
-  renderPlTabs();
-  renderPlaylist();
+  renderPlTabs(); renderPlaylist(); updateBreadcrumb();
+}
+
+function updateBreadcrumb() {
+  const bc = document.getElementById('pl-breadcrumb');
+  if (!bc) return;
+  if (currentPl === 'all') {
+    bc.innerHTML = '<span style="color:var(--cyan)">전체</span>'; return;
+  }
+  const pl = playlists.find(p => p.name === currentPl);
+  const icon = pl ? LEVEL_ICON[pl.level] : '';
+  const lvl  = pl ? LEVEL_NAME[pl.level] : '';
+  bc.innerHTML = '<span style="cursor:pointer;color:var(--text3)" onclick="navPl('all')">전체</span> <span style="color:var(--text3)">›</span> <span style="color:var(--y)">' + icon + ' ' + currentPl + '</span> <span style="font-size:10px;color:var(--text3)">(' + lvl + ')</span>';
 }
 
 function renderPlTabs() {
   const el = document.getElementById('pl-tabs');
-  const allCount = tracks.length;
-  let html = `<button class="pl-tab active pl-all" onclick="selectPl('전체')">🎵 전체 <span class="pl-tab-count">${allCount}</span></button>`;
-  playlists.filter(p => p !== '전체').forEach(p => {
-    const cnt = tracks.filter(t => t.playlist === p).length;
-    const isActive = currentPl === p;
-    html += `<button class="pl-tab${isActive?' active':''}" onclick="selectPl('${p}')">
-      ${p} <span class="pl-tab-count">${cnt}</span>
-      <span onclick="deletePlaylist('${p}');event.stopPropagation()" style="margin-left:2px;opacity:.5;font-size:10px">✕</span>
-    </button>`;
+  if (!el) return;
+  let html = '<button class="pl-tab' + (currentPl==='all'?' active pl-all':'') + '" onclick="navPl('all')">🎵 전체 <span class="pl-tab-count">' + tracks.length + '</span></button>';
+  ['small','mid','big'].forEach(lv => {
+    const lvPls = playlists.filter(p => p.level === lv);
+    if (!lvPls.length) return;
+    html += '<span style="font-size:9px;color:var(--text3);font-family:var(--mono);padding:0 4px;align-self:center">' + LEVEL_ICON[lv] + '</span>';
+    lvPls.forEach(p => {
+      const cnt = tracks.filter(t => t.playlist === p.name).length;
+      const isActive = currentPl === p.name;
+      html += '<button class="pl-tab' + (isActive?' active':'') + '" onclick="navPl('' + p.name + '')">' + p.name + ' <span class="pl-tab-count">' + cnt + '</span><span onclick="deletePlaylist('' + p.name + '');event.stopPropagation()" style="margin-left:2px;opacity:.5;font-size:10px">✕</span></button>';
+    });
   });
   el.innerHTML = html;
-  // 현재 탭 active 업데이트
-  el.querySelectorAll('.pl-tab').forEach(btn => {
-    const isAll = btn.textContent.includes('전체') && currentPl === '전체';
-    const name = btn.textContent.trim().split(' ')[0];
-    btn.classList.toggle('active', isAll || name === currentPl);
-  });
+  updateBreadcrumb();
 }
 
 function updateModalPlaylistSelect() {
   const sel = document.getElementById('m-playlist');
   if (!sel) return;
-  sel.innerHTML = '<option value="">전체 (미분류)</option>';
-  playlists.filter(p => p !== '전체').forEach(p => {
-    sel.innerHTML += `<option value="${p}">${p}</option>`;
+  sel.innerHTML = '<option value="">미분류</option>';
+  ['small','mid','big'].forEach(lv => {
+    const lvPls = playlists.filter(p => p.level === lv);
+    if (!lvPls.length) return;
+    const grp = document.createElement('optgroup');
+    grp.label = LEVEL_ICON[lv] + ' ' + LEVEL_NAME[lv];
+    lvPls.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.name; opt.textContent = p.name;
+      grp.appendChild(opt);
+    });
+    sel.appendChild(grp);
   });
 }
 
 function getFilteredTracks() {
-  if (currentPl === '전체') return getSorted(tracks);
+  if (currentPl === 'all') return getSorted(tracks);
   return getSorted(tracks.filter(t => t.playlist === currentPl));
 }
 
 // ════════════════════════════
-//  합치기 모달
+//  합치기 모달 (3단계)
 // ════════════════════════════
-function openMerge() {
-  mergeSelected = [];
+function openMerge(fromLevel, toLevel) {
+  mergeFromLevel = fromLevel; mergeToLevel = toLevel; mergeSelected = [];
+  const fromIcon = LEVEL_ICON[fromLevel], toIcon = LEVEL_ICON[toLevel];
+  document.getElementById('merge-modal-title').textContent = fromIcon + '→' + toIcon + ' 합치기';
+  document.getElementById('merge-modal-desc').textContent  = LEVEL_NAME[fromLevel] + '을 선택해서 ' + LEVEL_NAME[toLevel] + '으로 합쳐봐';
+  const fromPls = playlists.filter(p => p.level === fromLevel);
   const el = document.getElementById('merge-list');
-  el.innerHTML = playlists.filter(p => p !== '전체').map(p => {
-    const cnt = tracks.filter(t => t.playlist === p).length;
-    return `<div class="merge-item" id="mi-${p}" onclick="toggleMergeSelect('${p}')">
-      <div class="merge-check" id="mc-${p}"></div>
-      <div class="merge-item-name">${p}</div>
-      <div class="merge-item-count">${cnt}곡</div>
-    </div>`;
-  }).join('');
+  if (!fromPls.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:12px;padding:20px">' + LEVEL_NAME[fromLevel] + '이 없어!<br>먼저 만들어봐</div>';
+  } else {
+    el.innerHTML = fromPls.map(p => {
+      const cnt = tracks.filter(t => t.playlist === p.name).length;
+      return '<div class="merge-item" id="mi-' + p.name + '" onclick="toggleMergeSelect('' + p.name + '')">' +
+        '<div class="merge-check" id="mc-' + p.name + '"></div>' +
+        '<div class="merge-item-name">' + LEVEL_ICON[p.level] + ' ' + p.name + '</div>' +
+        '<div class="merge-item-count">' + cnt + '곡</div></div>';
+    }).join('');
+  }
   document.getElementById('merge-overlay').classList.add('show');
 }
 
@@ -1114,42 +1152,31 @@ function handleMergeOvClick(e) {
 }
 
 function toggleMergeSelect(name) {
-  const item = document.getElementById('mi-'+name);
-  const check = document.getElementById('mc-'+name);
+  const item = document.getElementById('mi-'+name), check = document.getElementById('mc-'+name);
   if (mergeSelected.includes(name)) {
     mergeSelected = mergeSelected.filter(p => p !== name);
-    item.classList.remove('selected');
-    check.textContent = '';
+    item.classList.remove('selected'); check.textContent = '';
   } else {
-    mergeSelected.push(name);
-    item.classList.add('selected');
-    check.textContent = '✓';
+    mergeSelected.push(name); item.classList.add('selected'); check.textContent = '✓';
   }
 }
 
 function mergePlaylists() {
   if (mergeSelected.length < 2) { showToast('2개 이상 선택해줘!'); return; }
   const newName = document.getElementById('merge-name-inp').value.trim();
-  if (!newName) { showToast('새 플레이리스트 이름을 입력해줘!'); return; }
-  if (playlists.includes(newName)) { showToast('이미 있는 이름이야!'); return; }
-
-  // 새 플레이리스트 생성
-  playlists.push(newName);
-  // 선택된 플레이리스트 곡들 → 새 플레이리스트로 복사 (원본 유지)
+  if (!newName) { showToast('새 분류 이름을 입력해줘!'); return; }
+  if (playlists.find(p => p.name === newName)) { showToast('이미 있는 이름이야!'); return; }
+  playlists.push({ name: newName, level: mergeToLevel });
+  const toAdd = [];
   tracks.forEach(t => {
     if (mergeSelected.includes(t.playlist)) {
-      // 복사본 추가
-      tracks.push({ ...t, id: Date.now().toString()+Math.random().toString(36).slice(2), playlist: newName });
+      toAdd.push({ ...t, id: Date.now().toString()+Math.random().toString(36).slice(2), playlist: newName });
     }
   });
-
-  save();
-  savePlaylists();
-  closeMerge();
-  renderPlTabs();
-  renderPlaylist();
-  updateModalPlaylistSelect();
-  showToast(`"${newName}" 으로 합쳐짐! 🔗`);
+  tracks.push(...toAdd);
+  save(); savePlaylists(); closeMerge();
+  renderPlTabs(); renderPlaylist(); updateModalPlaylistSelect();
+  showToast(LEVEL_ICON[mergeToLevel] + ' "' + newName + '" 생성됨! 🔗');
 }
 
 // ════════════════════════════
@@ -1165,6 +1192,9 @@ document.addEventListener('keydown', e => {
 // ════════════════════════════
 //  INIT
 // ════════════════════════════
+const LEVEL_ICON = { small: '🟢', mid: '🟡', big: '🔴' };
+const LEVEL_NAME = { small: '소분류', mid: '중분류', big: '대분류' };
+
 audio.volume = 0.8;
 document.getElementById('loop-btn').style.opacity   = '0.4';
 document.getElementById('shuffle-btn').style.opacity = '0.4';
