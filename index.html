@@ -212,7 +212,7 @@ input[type=range].vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width
 <header class="hdr">
   <div class="hdr-eye">// TENPEAK · MUSIC PLAYER</div>
   <div class="hdr-title">340번님의 뮤직 플레이어<br>카운트다운 🎧</div>
-  <div class="hdr-sub">BACKGROUND AUDIO PLAYER · <span style="color:var(--y)">v1.0</span></div>
+  <div class="hdr-sub">BACKGROUND AUDIO PLAYER · <span style="color:var(--y)">v1.1</span></div>
 </header>
 
 <div class="content">
@@ -905,7 +905,7 @@ function renderPlaylist() {
     return;
   }
   el.innerHTML = sorted.map((t, i) => {
-    const realIdx = tracks.indexOf(t);
+    const realIdx = tracks.findIndex(tr => tr.id === t.id);
     const isActive = realIdx === curIdx;
     const isSC = t.url && (t.url.includes('soundcloud.com') || t.url.includes('on.soundcloud'));
     const plBadge = t.playlist ? `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(255,224,102,.1);color:var(--y);font-family:var(--mono);margin-left:4px">${esc(t.playlist)}</span>` : '';
@@ -917,7 +917,7 @@ function renderPlaylist() {
         <div class="track-idx">${isActive ? '♪' : i+1}</div>
         ${artThumb}
         <div class="track-info">
-          <div class="track-title">${esc(t.title)}${currentPl==='전체'?plBadge:''}${isSC?'<span style="font-size:9px;margin-left:4px;color:var(--orange);font-family:var(--mono)">SC</span>':''}</div>
+          <div class="track-title">${esc(t.title)}${currentPl==='all'?plBadge:''}${isSC?'<span style="font-size:9px;margin-left:4px;color:var(--orange);font-family:var(--mono)">SC</span>':''}</div>
           <div class="track-artist">${esc(t.artist)}${t.genre?` · ${esc(t.genre)}`:''}</div>
           <div class="track-stars">${renderStars(t.rating)}</div>
           ${t.review ? `<div class="track-review">"${esc(t.review)}"</div>` : ''}
@@ -1196,11 +1196,6 @@ function updateModalPlaylistSelect() {
     });
     sel.appendChild(grp);
   });
-}
-
-function getFilteredTracks() {
-  if (currentPl === 'all') return getSorted(tracks);
-  return getSorted(tracks.filter(t => t.playlist === currentPl));
 }
 
 // ════════════════════════════
