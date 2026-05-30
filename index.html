@@ -634,20 +634,27 @@ function playAt(idx) {
   const isSC = t.url && (t.url.includes('soundcloud.com') || t.url.includes('on.soundcloud'));
 
   if (isSC) {
-    // SoundCloud → 링크로 이동 (아이폰 팝업 차단 우회)
     loadTrack(idx);
-    const a = document.createElement('a');
-    a.href = t.url;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // 앱 스킴으로 먼저 시도, 실패하면 웹으로
+    const appUrl = t.url.replace('https://on.soundcloud.com/', 'soundcloud://').replace('https://soundcloud.com/', 'soundcloud://');
+    const webUrl = t.url;
+    // 앱 열기 시도
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = appUrl;
+    document.body.appendChild(iframe);
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 1000);
+    // 1.5초 후에도 앱 안 열리면 웹으로
+    setTimeout(() => {
+      window.location.href = webUrl;
+    }, 1500);
     document.getElementById('np-dot').classList.add('playing');
     document.getElementById('np-status-txt').textContent = 'SoundCloud에서 재생 중';
     document.getElementById('waveform').classList.add('playing');
     document.getElementById('np-disc').classList.add('spinning');
-    showToast('SoundCloud 앱에서 재생됩니다 🎵');
+    showToast('SoundCloud 앱 열는 중 🎵');
   } else {
     loadTrack(idx);
     audio.play();
