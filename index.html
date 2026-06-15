@@ -441,7 +441,7 @@ input[type=range].vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width
     <div class="lbl">// MP3 파일 업로드</div>
     <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;cursor:pointer;margin-bottom:11px">
       <span style="font-size:12px;color:var(--cyan);font-family:var(--mono)" id="m-file-label">📂 파일 선택...</span>
-      <input type="file" id="m-file-inp" accept="audio/*,.mp3,.ogg,.wav,.flac,.m4a" style="display:none" onchange="handleFileSelect(this)">
+      <input type="file" id="m-file-inp" accept="audio/*,.mp3,.ogg,.wav,.flac,.m4a" multiple style="display:none" onchange="handleFileSelect(this)">
     </label>
     <div class="lbl">// 장르 (선택)</div>
     <input class="inp" id="m-genre" placeholder="예) R&B, 팝, 힙합" maxlength="30">
@@ -842,23 +842,75 @@ function previewArt(input) {
 
 let selectedFileData = null; // base64 또는 blob URL
 
+// 파일명에서 영상ID/괄호/특수문자 정리
+function cleanFileName(name) {
+  let t = name.replace(/\.[^/.]+$/, ''); // 확장자 제거
+  t = t.replace(/\s*[\[(][A-Za-z0-9_-]{8,15}[\])]\s*$/g, ''); // 끝의 [videoID] 또는 (videoID) 제거
+  t = t.replace(/^\[.*?\]\s*/, ''); // 맨 앞 [태그] 제거 (예: [ Limbus Company - OST ])
+  t = t.replace(/\s{2,}/g, ' ').trim();
+  return t || name;
+}
+
+// 파일명에서 아티스트/제목 분리 시도 ("아티스트 - 제목" 패턴)
+function parseTitleArtist(cleanName) {
+  const m = cleanName.match(/^(.+?)\s*[-–]\s*(.+)$/);
+  if (m && m[1].length < 30) {
+    return { artist: m[1].trim(), title: m[2].trim() };
+  }
+  return { artist: '', title: cleanName };
+}
+
 function handleFileSelect(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const label = document.getElementById('m-file-label');
-  label.textContent = '✅ ' + file.name;
+  const files = [...input.files];
+  if (!files.length) return;
 
-  // 파일을 base64로 읽기
-  const reader = new FileReader();
-  reader.onload = e => {
-    selectedFileData = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  if (files.length === 1) {
+    // 단일 파일: 기존 방식 (모달 입력칸 채우기)
+    const file = files[0];
+    const label = document.getElementById('m-file-label');
+    label.textContent = '✅ ' + file.name;
 
-  // 제목 자동 입력 (파일명에서)
-  const title = file.name.replace(/\.[^/.]+$/, '').replace(/[\[\]]/g, '').trim();
-  const titleInp = document.getElementById('m-title');
-  if (!titleInp.value) titleInp.value = title;
+    const reader = new FileReader();
+    reader.onload = e => { selectedFileData = e.target.result; };
+    reader.readAsDataURL(file);
+
+    const cleaned = cleanFileName(file.name);
+    const { artist, title } = parseTitleArtist(cleaned);
+    const titleInp = document.getElementById('m-title');
+    const artistInp = document.getElementById('m-artist');
+    if (!titleInp.value) titleInp.value = title;
+    if (!artistInp.value && artist) artistInp.value = artist;
+    return;
+  }
+
+  // 다중 파일: 일괄 추가
+  const playlist = document.getElementById('m-playlist').value;
+  let loaded = 0;
+  const newTracks = [];
+
+  showToast(`${files.length}개 파일 처리 중...`);
+
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const cleaned = cleanFileName(file.name);
+      const { artist, title } = parseTitleArtist(cleaned);
+      newTracks.push({
+        id: Date.now().toString() + Math.random().toString(36).slice(2,6),
+        title: title || cleaned,
+        artist: artist || '아티스트 미입력',
+        url: e.target.result,
+        genre: '', review: '', rating: 0, playlist, artData: ''
+      });
+      loaded++;
+      if (loaded === files.length) {
+        tracks.push(...newTracks);
+        save(); renderPlTabs(); renderPlaylist(); closeModal();
+        showToast(`${newTracks.length}곡 추가됨! 목록에서 수정해봐 🎵`);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function addTrack() {
@@ -912,30 +964,46 @@ function renderPlaylist() {
   const el = document.getElementById('pl-list');
   const sorted = getFilteredTracks();
   if (!sorted.length) {
-    el.innerHTML = `<div class="no-tracks">${currentPl === '전체' ? '아직 트랙 없음 😶<br>+ 버튼으로 음원 URL을 추가해봐!' : '"'+currentPl+'" 에 곡이 없어!<br>곡 추가 시 플레이리스트를 선택해봐 👍'}</div>`;
+    el.innerHTML = `<div class="no-tracks">${currentPl === 'all' ? '아직 트랙 없음 😶<br>+ 버튼으로 MP3를 추가해봐!' : '"'+currentPl+'" 에 곡이 없어!<br>곡 추가 시 플레이리스트를 선택해봐 👍'}</div>`;
     return;
   }
   el.innerHTML = sorted.map((t, i) => {
     const realIdx = tracks.findIndex(tr => tr.id === t.id);
     const isActive = realIdx === curIdx;
-    const isSC = t.url && (t.url.includes('soundcloud.com') || t.url.includes('on.soundcloud'));
     const plBadge = t.playlist ? `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:rgba(255,224,102,.1);color:var(--y);font-family:var(--mono);margin-left:4px">${esc(t.playlist)}</span>` : '';
     const artThumb = t.artData
       ? `<img src="${t.artData}" style="width:38px;height:38px;border-radius:6px;object-fit:cover;flex-shrink:0">`
-      : `<div style="width:38px;height:38px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${isSC?'☁️':'🎵'}</div>`;
+      : `<div style="width:38px;height:38px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🎵</div>`;
+    const needsEdit = t.artist === '아티스트 미입력';
     return `
-      <div class="track${isActive?' active':''}" onclick="playAt(${realIdx})">
+      <div class="track${isActive?' active':''}${needsEdit?' needs-edit':''}" onclick="playAt(${realIdx})">
         <div class="track-idx">${isActive ? '♪' : i+1}</div>
         ${artThumb}
         <div class="track-info">
-          <div class="track-title">${esc(t.title)}${currentPl==='all'?plBadge:''}${isSC?'<span style="font-size:9px;margin-left:4px;color:var(--orange);font-family:var(--mono)">SC</span>':''}</div>
-          <div class="track-artist">${esc(t.artist)}${t.genre?` · ${esc(t.genre)}`:''}</div>
+          <div class="track-title" ondblclick="editTrackField(event,'${t.id}','title')">${esc(t.title)}${currentPl==='all'?plBadge:''}</div>
+          <div class="track-artist" ondblclick="editTrackField(event,'${t.id}','artist')" style="${needsEdit?'color:var(--orange)':''}">${esc(t.artist)}${t.genre?` · ${esc(t.genre)}`:''}${needsEdit?' ✏️ 더블탭해서 수정':''}</div>
           <div class="track-stars">${renderStars(t.rating)}</div>
           ${t.review ? `<div class="track-review">"${esc(t.review)}"</div>` : ''}
         </div>
         <button class="track-del" onclick="deleteTrack('${t.id}',event)">✕</button>
       </div>`;
   }).join('');
+}
+
+// 트랙 제목/아티스트 더블클릭(더블탭)으로 수정
+function editTrackField(e, id, field) {
+  e.stopPropagation();
+  const t = tracks.find(tr => tr.id === id);
+  if (!t) return;
+  const current = field === 'title' ? t.title : t.artist;
+  const label = field === 'title' ? '제목' : '아티스트';
+  const next = prompt(`${label} 수정:`, current === '아티스트 미입력' ? '' : current);
+  if (next === null) return;
+  const val = next.trim();
+  if (!val) return;
+  t[field] = val;
+  save(); renderPlaylist();
+  showToast('수정됨!');
 }
 
 function esc(s) {
